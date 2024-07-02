@@ -23,6 +23,9 @@ devDependencies:
   '@types/eslint':
     specifier: ^8.56.7
     version: 8.56.10
+  '@types/eslint__js':
+    specifier: ^8.42.3
+    version: 8.42.3
   '@types/mapbox-gl':
     specifier: ^3.1.0
     version: 3.1.0
@@ -653,6 +656,12 @@ packages:
     dependencies:
       '@types/estree': 1.0.5
       '@types/json-schema': 7.0.15
+    dev: true
+
+  /@types/eslint__js@8.42.3:
+    resolution: {integrity: sha512-alfG737uhmPdnvkrLdZLcEKJ/B8s9Y4hrZ+YAdzUeoArBlSUERA2E87ROfOaS4jd/C45fzOoZzidLc1IPwLqOw==}
+    dependencies:
+      '@types/eslint': 8.56.10
     dev: true
 
   /@types/estree@1.0.5:

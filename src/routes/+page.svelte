@@ -4,6 +4,7 @@
 	import 'mapbox-gl/dist/mapbox-gl.css';
 	import { example_data } from './data';
 	import { PUBLIC_MAPBOX_TOKEN } from '$env/static/public';
+	import type { InterpolateHeatmapLayer } from 'interpolateheatmaplayer';
 
 	mapboxgl.accessToken = PUBLIC_MAPBOX_TOKEN;
 
@@ -21,52 +22,14 @@
 	let points: { lat: number; lon: number; val: number }[] = [];
 	let data = example_data;
 
+	let map: mapboxgl.Map;
+	let layer: InterpolateHeatmapLayer;
+	let markers: mapboxgl.Marker[] = [];
+
 	onMount(async () => {
 		const interpolateHeatmapLayer = await import('interpolateheatmaplayer');
 
-		for (let i = 0; i < n; i++) {
-			for (let j = 0; j < n; j++) {
-				points.push({
-					lat: startingLatitude + (i * (endingLatitude - startingLatitude)) / n,
-					lon: startingLongitude + (j * (endingLongitude - startingLongitude)) / n,
-					val: 0
-				});
-			}
-		}
-
-		// const baseUrl = 'https://api.openweathermap.org/data/2.5/weather?units=metric&lat=';
-		// const apiKey = '';
-		// const urls = points.map(
-		// 	(point) => baseUrl + point.lat + '&lon=' + point.lon + '&appid=' + apiKey
-		// );
-
-		// const weathers = await Promise.all(
-		// 	urls.map(async (url) => {
-		// 		const response = await fetch(url);
-		// 		return await response.json();
-		// 	})
-		// );
-
-		// let data = [];
-		// for (let i = 0; i < points.length; i++) {
-		// 	const weather = weathers[i];
-		// 	const { lat, lon } = points[i];
-		// 	console.log(weather);
-		// 	data.push({
-		// 		lat,
-		// 		lon,
-		// 		temp: weather.main.temp,
-		// 		pressure: weather.main.pressure,
-		// 		humidity: weather.main.humidity,
-		// 		quality: Math.random() * 100 // we dont get air quality data
-		// 	});
-		// }
-
-		points = data.map(({ lat, lon, temp }) => {
-			return { lat, lon, val: temp };
-		});
-
-		const map = new mapboxgl.Map({
+		map = new mapboxgl.Map({
 			container: 'map',
 			style: 'mapbox://styles/mapbox/light-v10',
 			// projection: { name: 'globe' },
@@ -74,9 +37,34 @@
 			center: [lon, lat]
 		});
 
+		map.on('load', () => {
+			layer = interpolateHeatmapLayer.create({
+				layerId: 'temperature',
+				points: points
+				// roi: [[-73, 39.7], [-72, 41.7]],
+			});
+			map.addLayer(layer, 'road-label');
+		});
+		updatePoints();
+	});
+
+	const updatePoints = async () => {
+		if (selected == 'test') {
+			data = example_data;
+		} else {
+			data = [await (await fetch('/last')).json()];
+		}
+		points = data.map(({ lat, lon, temp }) => {
+			return { lat, lon, val: temp };
+		});
+		layer?.updatePoints(points);
+
 		const values = points.map(({ val }) => val);
 		const min = Math.min(...values);
 		const max = Math.max(...values);
+
+		for (const marker of markers) marker.remove();
+		markers = [];
 
 		for (const [i, { lon, lat, val }] of points.entries()) {
 			const el = document.createElement('div');
@@ -88,7 +76,7 @@
 			el.style.setProperty('--shift', `${x * -206}deg`);
 			const d = data[i];
 
-			new mapboxgl.Marker(el, { anchor: 'bottom' })
+			let marker = new mapboxgl.Marker(el, { anchor: 'bottom' })
 				.setLngLat([lon, lat])
 				.setPopup(
 					new mapboxgl.Popup({ offset: 50 }) // add popups
@@ -100,22 +88,25 @@
 						)
 				)
 				.addTo(map);
+			markers.push(marker);
 		}
+	};
 
-		map.on('load', () => {
-			const layer = interpolateHeatmapLayer.create({
-				points: points,
-				layerId: 'temperature'
-				// roi: [[-73, 39.7], [-72, 41.7]],
-			});
-			map.addLayer(layer, 'road-label');
-		});
-	});
+	let selected: 'test' | 'adafruit';
 </script>
 
+<select bind:value={selected} on:change={updatePoints}>
+	<option value="test">Test Data</option>
+	<option value="adafruit">Adafruit IO</option>
+</select>
 <div id="map" />
 
 <style>
+	select {
+		position: absolute;
+		z-index: 99;
+	}
+
 	#map {
 		height: 100%;
 	}
